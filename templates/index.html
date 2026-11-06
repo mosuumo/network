@@ -11,8 +11,12 @@
         <button id="add-pc">PC追加</button>
         <button id="add-sw">SW追加</button>
         <button id="add-router">Router追加</button>
+        <button id="connect-mode">接続モード:OFF</button>
     </div>
-    <div id="canvas"></div>
+    <div id="canvas">
+        <!-- 接続モード -->
+        <svg id="connetions"></svg>
+    </div>
     <script src="{{ url_for('static', filename='js/script.js')}}"></script>
 </body>
 </html>
