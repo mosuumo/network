@@ -1,12 +1,19 @@
-from flask import Flask, render_template, request, jsonify
-import sqlite3
-import json
-from database import init_db, DB_NAME
+from flask import Flask, render_template
+from database import init_db
+from routes.topologies import topologies_bp
+from routes.devices import devices_bp
+from routes.connections import connections_bp
 
+# Flaskアプリケーションを作成する
 app = Flask(__name__)
 
 # データベースを初期化する
 init_db()
+
+# 各APIのルートを登録する
+app.register_blueprint(topologies_bp)
+app.register_blueprint(devices_bp)
+app.register_blueprint(connections_bp)
 
 
 # トップページを表示する
@@ -15,43 +22,6 @@ def index():
     return render_template("index.html")
 
 
-# トポロジーを保存するAPI
-@app.route("/api/topologies", methods=["POST"])
-def save_topology():
-
-    # フロントエンドから送信されたJSONデータを取得する
-    data = request.get_json()
-
-    # トポロジー名を取得する
-    name = data.get("name")
-
-    # トポロジー名が入力されているか確認する
-    if not name:
-        return jsonify({"error": "トポロジー名が必要です"}), 400
-
-    # データベースに接続する
-    conn = sqlite3.connect(DB_NAME)
-
-    # トポロジー名をデータベースに登録する
-    cursor = conn.execute(
-        "INSERT INTO topologies (name) VALUES (?)",
-        (name,)
-    )
-
-    # 登録されたトポロジーのIDを取得する
-    topology_id = cursor.lastrowid
-
-    # データベースへの変更を確定する
-    conn.commit()
-
-    # データベースとの接続を終了する
-    conn.close()
-
-    # 保存結果をJSON形式で返す
-    return jsonify({
-        "message": "トポロジーを保存しました",
-        "topology_id": topology_id
-    }), 201
-
+# アプリケーションを起動する
 if __name__ == "__main__":
     app.run(debug=True)
