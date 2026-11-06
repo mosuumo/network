@@ -32,6 +32,12 @@ document.getElementById("connect-mode").addEventListener("click", () =>{
         selectedDevice.element.classList.remove("selected");
         selectedDevice = null;
     }
+
+    //削除対象の選択状態を解除
+    if(deleteTarget){
+        deleteTarget.element.classList.remove("delete-selected");
+        deleteTarget = null;
+    }
 });
 
 //接続線を作成する関数
@@ -213,12 +219,6 @@ function addDevice(type){
         dragging = false;
     });
 
-    //接続モードで機器を選択
-    element.addEventListener("click", () =>{
-        if(connectMode){
-            selectForConnection(device, element);
-        }
-    });
 
     //機器をクリックしたとき
     element.addEventListener("click", () => {
