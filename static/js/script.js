@@ -1,5 +1,6 @@
 //機器情報を保存する配列
 const devices = [];
+const connections = []
 
 //svg要素
 const svg = document.getElementById("connections");
@@ -31,27 +32,27 @@ document.getElementById("connect-mode").addEventListener("click", () =>{
 });
 
 //接続線を作成する関数
-function createConnection(formDevice, toDevice){
+function createConnection(fromDevice, toDevice){
 
     //同じ接続の重複を防ぐ
     const exists = connections.some(conn =>
-        (conn.from) === formDevice.id && conn.to === toDevice.id) ||
-        (conn.from === toDevice.id && conn.to === formDevice.id)
-    ;
+        (conn.from === fromDevice.id && conn.to === toDevice.id) ||
+        (conn.from === toDevice.id && conn.to === fromDevice.id)
+    );
 
     if(exists) return;
 
     //SVGの線を作成
-    const line = document.createElement(SVG_NS, "line");
+    const line = document.createElementNS(SVG_NS, "line");
 
-    line.setAttribute("strock", "black");
-    line.setAttribute("strock-width", "3");
+    line.setAttribute("stroke", "black");
+    line.setAttribute("stroke-width", "3");
 
     //機器の中心座標を設定
-    line.setAttribute("x1", fromDevice.x + 50);
-    line.setAttribute("y1", fromDevice.y + 30);
-    line.setAttribute("x2", toDevice.x + 50);
-    line.setAttribute("y2", toDevice.y + 30);
+    line.setAttribute("x1", fromDevice.x + 52);
+    line.setAttribute("y1", fromDevice.y + 32);
+    line.setAttribute("x2", toDevice.x + 52);
+    line.setAttribute("y2", toDevice.y + 32);
 
     svg.appendChild(line);
 
@@ -62,6 +63,25 @@ function createConnection(formDevice, toDevice){
         line: line
     });
 
+}
+
+//機器の移動に合わせて接続線を更新する関数
+function updateConnections(){
+    
+    connections.forEach(conn =>{
+
+        //接続元と接続先の機器を取得
+        const from = devices.find(d => d.id === conn.from);
+        const to = devices.find(d => d.id === conn.to);
+
+        if(!from || !to) return;
+
+        //機器の中心座標に合わせる
+        conn.line.setAttribute("x1", from.x + 52);
+        conn.line.setAttribute("y1", from.y + 32);
+        conn.line.setAttribute("x2", to.x + 52);
+        conn.line.setAttribute("y2", to.y + 32);
+    });
 }
 
 //接続する機器を選択する関数
@@ -149,6 +169,9 @@ function addDevice(type){
 
         element.style.left = device.x + "px";
         element.style.top = device.y + "px";
+
+        // 機器の移動に合わせて接続線を更新
+        updateConnections();
     });
 
     element.addEventListener("pointerup", () =>{
