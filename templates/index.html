@@ -7,7 +7,11 @@
 </head>
 <body>
     <h1>Network Topology Editor</h1>
-    <button id="add-pc">PC追加</button>
+        <div id="toolbar">
+        <button id="add-pc">PC追加</button>
+        <button id="add-sw">SW追加</button>
+        <button id="add-router">Router追加</button>
+    </div>
     <div id="canvas"></div>
     <script src="{{ url_for('static', filename='js/script.js')}}"></script>
 </body>
