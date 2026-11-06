@@ -19,8 +19,9 @@ body {
     position: absolute;
     width: 100px;
     height: 60px;
+
     background-color: lightblue;
-    border: 1px solid blue;
+    border: 2px solid blue;
     border-radius: 8px;
 
     display: flex;
