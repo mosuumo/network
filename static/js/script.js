@@ -20,6 +20,9 @@ let selectedDevice = null;
 //削除対象の機器
 let deleteTarget = null;
 
+//削除対象の接続線
+let selectedConnection = null;
+
 //接続モードの切り替え
 document.getElementById("connect-mode").addEventListener("click", () =>{
     connectMode = !connectMode;
@@ -62,6 +65,27 @@ function createConnection(fromDevice, toDevice){
     line.setAttribute("y1", fromDevice.y + 32);
     line.setAttribute("x2", toDevice.x + 52);
     line.setAttribute("y2", toDevice.y + 32);
+
+
+    //接続線をクリックしたとき
+    line.addEventListener("click", () => {
+
+        if(connectMode) return;
+
+        //前の選択を解除
+        if(selectedConnection){
+            selectedConnection.classList.remove("line-selected");
+        }
+
+        //機器の削除対象を解除
+        if(deleteTarget){
+            deleteTarget.element.classList.remove("delete-selected");
+            deleteTarget = null;
+        }
+
+        selectedConnection = line;
+        line.classList.add("line-selected");
+    });
 
     svg.appendChild(line);
 
@@ -117,6 +141,23 @@ function selectForConnection(device, element){
     selectedDevice = null;
 }
 
+//選択した接続線を削除する関数
+function deleteConnection(){
+
+    if(selectedConnection === null) return;
+
+    const index = connections.findIndex(
+        conn => conn.line === selectedConnection
+    );
+
+    if(index !== -1){
+        connections.splice(index, 1);
+    }
+
+    selectedConnection.remove();
+    selectedConnection = null;
+}
+
 //機器と接続線を削除する関数
 function deleteDevice(){
 
@@ -125,12 +166,14 @@ function deleteDevice(){
     const id = deleteTarget.device.id;
 
     //接続線を削除
-    for(let i = connections.length - 1; i >= 0; i--){
+    if(connections[i].from === id || connections[i].to === id){
 
-        if(connections[i].from === id || connections[i].to === id){
-            connections[i].line.remove();
-            connections.splice(i, 1);
+        if(selectedConnection === connections[i].line){
+            selectedConnection = null;
         }
+
+        connections[i].line.remove();
+        connections.splice(i, 1);
     }
 
     //機器情報を削除
@@ -256,4 +299,8 @@ document.getElementById("add-router").addEventListener("click", () =>{
 
 document.getElementById("delete-device").addEventListener("click", () => {
     deleteDevice();
+});
+
+document.getElementById("delete-connection").addEventListener("click", () => {
+    deleteConnection();
 });
