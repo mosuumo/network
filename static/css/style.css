@@ -30,4 +30,7 @@ body {
 
     cursor: pointer;
     user-select: none;
+
+    touch-action: none;
+    cursor: grab;
 }

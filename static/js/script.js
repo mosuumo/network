@@ -55,3 +55,37 @@ document.getElementById("add-sw").addEventListener("click", () =>{
 document.getElementById("add-router").addEventListener("click", () =>{
     addDevice("Router");
 });
+
+let dragging = false;
+let offsetX = 0;
+let offsetY = 0;
+
+element.addEventListener("pointerdown", (e) =>{
+    dragging = true;
+
+    offsetX = e.clientX - element.offsetX;
+    offsetY = e.clientY - element.offsetY;
+
+    element.setPointerCapture(e.pointerId);
+});
+
+element.addEventListener("pointermove", (e) =>{
+    if(!dragging) return;
+
+    const canvas = document.getElementById("canvas");
+    const rect = canvas.getBoundingClientRect();
+
+    device.x = e.clientX - rect.left - offsetX;
+    device.y = e.clientY - rect.top - offsetY;
+
+    element.style.left = device.x + "px";
+    element.style.top = device.y + "px";
+});
+
+element.addEventListener("pointerup", () =>{
+    dragging = false;
+});
+
+element.addEventListener("pointercancel", () =>{
+    dragging = false;
+})
