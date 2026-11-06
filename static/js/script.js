@@ -17,6 +17,9 @@ const deviceCount = {
 let connectMode = false;
 let selectedDevice = null;
 
+//削除対象の機器
+let deleteTarget = null;
+
 //接続モードの切り替え
 document.getElementById("connect-mode").addEventListener("click", () =>{
     connectMode = !connectMode;
@@ -108,6 +111,34 @@ function selectForConnection(device, element){
     selectedDevice = null;
 }
 
+//機器と接続線を削除する関数
+function deleteDevice(){
+
+    if(deleteTarget === null) return;
+
+    const id = deleteTarget.device.id;
+
+    //接続線を削除
+    for(let i = connections.length - 1; i >= 0; i--){
+
+        if(connections[i].from === id || connections[i].to === id){
+            connections[i].line.remove();
+            connections.splice(i, 1);
+        }
+    }
+
+    //機器情報を削除
+    const index = devices.findIndex(d => d.id === id);
+
+    if(index !== -1){
+        devices.splice(index, 1);
+    }
+
+    //HTML要素を削除
+    deleteTarget.element.remove();
+    deleteTarget = null;
+}
+
 //機器を追加する関数
 function addDevice(type){
 
@@ -188,6 +219,25 @@ function addDevice(type){
             selectForConnection(device, element);
         }
     });
+
+    //機器をクリックしたとき
+    element.addEventListener("click", () => {
+
+        if(connectMode){
+            selectForConnection(device, element);
+            return;
+        }
+
+        //前の選択を解除
+        if(deleteTarget){
+            deleteTarget.element.classList.remove("delete-selected");
+        }
+
+        //削除対象として選択
+        deleteTarget = {device, element};
+        element.classList.add("delete-selected");
+    });
+
 };
 
 
@@ -202,4 +252,8 @@ document.getElementById("add-sw").addEventListener("click", () =>{
 
 document.getElementById("add-router").addEventListener("click", () =>{
     addDevice("Router");
+});
+
+document.getElementById("delete-device").addEventListener("click", () => {
+    deleteDevice();
 });

@@ -53,3 +53,7 @@ body {
 .device.selected {
     outline: 3px solid orange;
 }
+
+.device.delete-selected {
+    outline: 3px solid red;
+}
