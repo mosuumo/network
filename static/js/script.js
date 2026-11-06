@@ -42,15 +42,20 @@ function addDevice(type){
     //canvasに追加
     document.getElementById("canvas").appendChild(element);
 
+    let startX = 0;
+    let startY = 0;
+    let initialX = 0;
+    let initialY = 0;
     let dragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
 
     element.addEventListener("pointerdown", (e) =>{
         dragging = true;
 
-        offsetX = e.clientX - element.offsetX;
-        offsetY = e.clientY - element.offsetY;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        initialX = device.x;
+        initialY = device.y;
 
         element.setPointerCapture(e.pointerId);
     });
@@ -58,11 +63,8 @@ function addDevice(type){
     element.addEventListener("pointermove", (e) =>{
         if(!dragging) return;
 
-        const canvas = document.getElementById("canvas");
-        const rect = canvas.getBoundingClientRect();
-
-        device.x = e.clientX - rect.left - offsetX;
-        device.y = e.clientY - rect.top - offsetY;
+        device.x = initialX + (e.clientX - startX);
+        device.y = initialY + (e.clientY - startY);
 
         element.style.left = device.x + "px";
         element.style.top = device.y + "px";
@@ -74,7 +76,8 @@ function addDevice(type){
 
     element.addEventListener("pointercancel", () =>{
         dragging = false;
-    })
+    });
+
 };
 
 //ボタンと関数の対応付け
