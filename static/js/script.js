@@ -166,14 +166,17 @@ function deleteDevice(){
     const id = deleteTarget.device.id;
 
     //接続線を削除
-    if(connections[i].from === id || connections[i].to === id){
+    for(let i = connections.length - 1; i >= 0; i--){
 
-        if(selectedConnection === connections[i].line){
-            selectedConnection = null;
+        if(connections[i].from === id || connections[i].to === id){
+
+            if(selectedConnection === connections[i].line){
+                selectedConnection = null;
+            }
+
+            connections[i].line.remove();
+            connections.splice(i, 1);
         }
-
-        connections[i].line.remove();
-        connections.splice(i, 1);
     }
 
     //機器情報を削除
