@@ -191,6 +191,34 @@ function deleteDevice(){
     deleteTarget = null;
 }
 
+
+//機器の種類に応じたポート情報を作成
+function createPorts(type){
+
+    if(type === "PC"){
+        return [
+            { name: "Fa0", connected: false }
+        ];
+    }
+
+    if(type === "SW"){
+        return Array.from({length: 24}, (_, i) => ({
+            name: `Fa0/${i + 1}`,
+            connected: false
+        }));
+    }
+
+    if(type === "Router"){
+        return [
+            { name: "Gi0/0", connected: false },
+            { name: "Gi0/1", connected: false }
+        ];
+    }
+
+    return [];
+}
+
+
 //機器を追加する関数
 function addDevice(type){
 
@@ -206,6 +234,7 @@ function addDevice(type){
         name: name,
         x: 100 + devices.length * 30,
         y: 100 + devices.length * 30,
+        ports: createPorts(type)
     };
 
     devices.push(device);
