@@ -43,8 +43,46 @@ document.getElementById("connect-mode").addEventListener("click", () =>{
     }
 });
 
+//接続に使用するポートを選択
+function selectPort(device){
+
+    //未使用ポートを取得
+    const availablePorts = device.ports.filter(
+        port => !port.connected
+    );
+
+    if(availablePorts.length === 0){
+        alert(`${device.name}に使用可能なポートがありません`);
+        return null;
+    }
+
+    //ポート一覧を表示
+    const message = availablePorts
+        .map(port => port.name)
+        .join("\n");
+
+    const selected = prompt(
+        `${device.name}のポートを選択してください\n${message}`,
+        availablePorts[0].name
+    );
+
+    if(selected === null) return null;
+
+    //入力されたポートを検索
+    const port = availablePorts.find(
+        port => port.name === selected.trim()
+    );
+
+    if(!port){
+        alert("存在しないポート、または使用済みのポートです");
+        return null;
+    }
+
+    return port;
+}
+
 //接続線を作成する関数
-function createConnection(fromDevice, toDevice){
+function createConnection(fromDevice, toDevice, fromPort, toPort){
 
     //同じ接続の重複を防ぐ
     const exists = connections.some(conn =>
@@ -52,7 +90,8 @@ function createConnection(fromDevice, toDevice){
         (conn.from === toDevice.id && conn.to === fromDevice.id)
     );
 
-    if(exists) return;
+    //使用済みポートへの接続を防ぐ
+    if(fromPort.connected || toPort.connected) return;  
 
     //SVGの線を作成
     const line = document.createElementNS(SVG_NS, "line");
@@ -93,8 +132,14 @@ function createConnection(fromDevice, toDevice){
     connections.push({
         from: fromDevice.id,
         to: toDevice.id,
+        fromPort: fromPort.name,
+        toPort: toPort.name,
         line: line
     });
+
+    //ポートを使用済みにする
+    fromPort.connected = true;
+    toPort.connected = true;
 
 }
 
@@ -134,9 +179,20 @@ function selectForConnection(device, element){
         return;
     }
 
-    //２台目を選択して接続線を作成 
-    createConnection(selectedDevice.device, device);
+    //２台目を選択
+    const fromDevice = selectedDevice.device;
+    const toDevice = device;
 
+    //使用するポートを選択
+    const fromPort = selectPort(fromDevice);
+    const toPort = fromPort ? selectPort(toDevice) : null;
+
+    //両方のポートが選択された場合のみ接続
+    if(fromPort && toPort){
+        createConnection(fromDevice, toDevice, fromPort, toPort);
+    }
+
+    //選択状態を解除
     selectedDevice.element.classList.remove("selected");
     selectedDevice = null;
 }
@@ -151,6 +207,22 @@ function deleteConnection(){
     );
 
     if(index !== -1){
+
+        const conn = connections[index];
+
+        const from = devices.find(d => d.id === conn.from);
+        const to = devices.find(d => d.id === conn.to);
+
+        if(from){
+            const port = from.ports.find(p => p.name === conn.fromPort);
+            if(port) port.connected = false;
+        }
+
+        if(to){
+            const port = to.ports.find(p => p.name === conn.toPort);
+            if(port) port.connected = false;
+        }
+
         connections.splice(index, 1);
     }
 
@@ -184,6 +256,19 @@ function deleteDevice(){
 
     if(index !== -1){
         devices.splice(index, 1);
+    }
+
+    //接続相手のポートを未使用に戻す
+    const conn = connections[i];
+
+    const otherId = conn.from === id ? conn.to : conn.from;
+    const otherPort = conn.from === id ? conn.toPort : conn.fromPort;
+
+    const otherDevice = devices.find(d => d.id === otherId);
+
+    if(otherDevice){
+        const port = otherDevice.ports.find(p => p.name === otherPort);
+        if(port) port.connected = false;
     }
 
     //HTML要素を削除
