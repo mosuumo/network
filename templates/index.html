@@ -7,13 +7,23 @@
 </head>
 <body>
     <h1>Network Topology Editor</h1>
-        <div id="toolbar">
+    <div id="toolbar">
         <button id="add-pc">PC追加</button>
         <button id="add-sw">SW追加</button>
         <button id="add-router">Router追加</button>
         <button id="connect-mode">接続モード:OFF</button>
         <button id="delete-device">機器削除</button>
         <button id="delete-connection">接続線削除</button>
+    </div>
+    <!-- ポート選択画面 -->
+    <div id="port-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="port-title">ポート選択</h3>
+
+            <div id="port-list"></div>
+
+            <button id="port-cancel">キャンセル</button>
+        </div>
     </div>
     <div id="canvas">
         <!-- 接続モード -->

@@ -43,42 +43,59 @@ document.getElementById("connect-mode").addEventListener("click", () =>{
     }
 });
 
-//接続に使用するポートを選択
+//ポート選択画面を表示
 function selectPort(device){
 
-    //未使用ポートを取得
-    const availablePorts = device.ports.filter(
-        port => !port.connected
-    );
+    return new Promise(resolve => {
 
-    if(availablePorts.length === 0){
-        alert(`${device.name}に使用可能なポートがありません`);
-        return null;
-    }
+        const modal = document.getElementById("port-modal");
+        const title = document.getElementById("port-title");
+        const list = document.getElementById("port-list");
+        const cancel = document.getElementById("port-cancel");
 
-    //ポート一覧を表示
-    const message = availablePorts
-        .map(port => port.name)
-        .join("\n");
+        title.textContent = `${device.name}のポートを選択`;
+        list.innerHTML = "";
 
-    const selected = prompt(
-        `${device.name}のポートを選択してください\n${message}`,
-        availablePorts[0].name
-    );
+        //未使用ポートを取得
+        const availablePorts = device.ports.filter(
+            port => !port.connected
+        );
 
-    if(selected === null) return null;
+        if(availablePorts.length === 0){
+            alert(`${device.name}に使用可能なポートがありません`);
+            resolve(null);
+            return;
+        }
 
-    //入力されたポートを検索
-    const port = availablePorts.find(
-        port => port.name === selected.trim()
-    );
+        //選択画面を閉じる
+        function close(port){
+            modal.classList.add("hidden");
+            cancel.onclick = null;
+            resolve(port);
+        }
 
-    if(!port){
-        alert("存在しないポート、または使用済みのポートです");
-        return null;
-    }
+        //ポートごとにボタンを作成
+        availablePorts.forEach(port => {
 
-    return port;
+            const button = document.createElement("button");
+
+            button.textContent = port.name;
+            button.className = "port-button";
+
+            button.addEventListener("click", () => {
+                close(port);
+            });
+
+            list.appendChild(button);
+        });
+
+        //キャンセル
+        cancel.onclick = () => {
+            close(null);
+        };
+
+        modal.classList.remove("hidden");
+    });
 }
 
 //接続線を作成する関数
@@ -162,12 +179,21 @@ function updateConnections(){
     });
 }
 
+
+function resetConnectMode(){
+    connectMode = true;
+
+    document.getElementById("connect-mode").textContent =
+        "接続モード：ON";
+}
+
+
 //接続する機器を選択する関数
-function selectForConnection(device, element){
+async function selectForConnection(device, element){
 
     //１台目を選択
     if(selectedDevice === null){
-        selectedDevice = {device, element}
+        selectedDevice = {device, element};
         element.classList.add("selected");
         return;
     }
@@ -183,18 +209,27 @@ function selectForConnection(device, element){
     const fromDevice = selectedDevice.device;
     const toDevice = device;
 
-    //使用するポートを選択
-    const fromPort = selectPort(fromDevice);
-    const toPort = fromPort ? selectPort(toDevice) : null;
-
-    //両方のポートが選択された場合のみ接続
-    if(fromPort && toPort){
-        createConnection(fromDevice, toDevice, fromPort, toPort);
-    }
-
     //選択状態を解除
     selectedDevice.element.classList.remove("selected");
     selectedDevice = null;
+
+    //ポート選択中の操作を防ぐ
+    connectMode = false;
+
+    const fromPort = await selectPort(fromDevice);
+
+    if(fromPort === null){
+        resetConnectMode();
+        return;
+    }
+
+    const toPort = await selectPort(toDevice);
+
+    if(toPort !== null){
+        createConnection(fromDevice, toDevice, fromPort, toPort);
+    }
+
+    resetConnectMode();
 }
 
 //選択した接続線を削除する関数
@@ -242,11 +277,27 @@ function deleteDevice(){
 
         if(connections[i].from === id || connections[i].to === id){
 
-            if(selectedConnection === connections[i].line){
+            const conn = connections[i];
+
+            if(selectedConnection === conn.line){
                 selectedConnection = null;
             }
 
-            connections[i].line.remove();
+            //接続相手のポートを未使用に戻す
+            const otherId = conn.from === id ? conn.to : conn.from;
+            const otherPort = conn.from === id ? conn.toPort : conn.fromPort;
+
+            const otherDevice = devices.find(d => d.id === otherId);
+
+            if(otherDevice){
+                const port = otherDevice.ports.find(
+                    p => p.name === otherPort
+                );
+
+                if(port) port.connected = false;
+            }
+
+            conn.line.remove();
             connections.splice(i, 1);
         }
     }
@@ -256,19 +307,6 @@ function deleteDevice(){
 
     if(index !== -1){
         devices.splice(index, 1);
-    }
-
-    //接続相手のポートを未使用に戻す
-    const conn = connections[i];
-
-    const otherId = conn.from === id ? conn.to : conn.from;
-    const otherPort = conn.from === id ? conn.toPort : conn.fromPort;
-
-    const otherDevice = devices.find(d => d.id === otherId);
-
-    if(otherDevice){
-        const port = otherDevice.ports.find(p => p.name === otherPort);
-        if(port) port.connected = false;
     }
 
     //HTML要素を削除
@@ -287,10 +325,17 @@ function createPorts(type){
     }
 
     if(type === "SW"){
-        return Array.from({length: 24}, (_, i) => ({
-            name: `Fa0/${i + 1}`,
-            connected: false
-        }));
+        return [
+            ...Array.from({length: 24}, (_, i) => ({
+                name: `Fa0/${i + 1}`,
+                connected: false
+            })),
+
+            ...Array.from({length: 2}, (_, i) => ({
+                name: `Gi0/${i + 1}`,
+                connected: false
+            }))
+        ];
     }
 
     if(type === "Router"){

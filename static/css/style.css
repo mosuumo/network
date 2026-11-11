@@ -66,3 +66,45 @@ body {
 #connections line.line-selected {
     stroke: red;
 }
+
+/* ポート選択画面 */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 350px;
+    max-width: 90vw;
+}
+
+#port-list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 15px 0;
+}
+
+.port-button {
+    padding: 8px 4px;
+    cursor: pointer;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+    background: #f5f5f5;
+}
+
+.port-button:hover {
+    background: lightblue;
+}
