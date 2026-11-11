@@ -101,12 +101,6 @@ function selectPort(device){
 //接続線を作成する関数
 function createConnection(fromDevice, toDevice, fromPort, toPort){
 
-    //同じ接続の重複を防ぐ
-    const exists = connections.some(conn =>
-        (conn.from === fromDevice.id && conn.to === toDevice.id) ||
-        (conn.from === toDevice.id && conn.to === fromDevice.id)
-    );
-
     //使用済みポートへの接続を防ぐ
     if(fromPort.connected || toPort.connected) return;  
 
@@ -145,14 +139,35 @@ function createConnection(fromDevice, toDevice, fromPort, toPort){
 
     svg.appendChild(line);
 
+    //接続元のポート番号
+    const fromLabel = document.createElementNS(SVG_NS, "text");
+    fromLabel.textContent = fromPort.name;
+    fromLabel.setAttribute("font-size", "12");
+    fromLabel.setAttribute("fill", "black");
+    fromLabel.setAttribute("pointer-events", "none");
+
+    //接続先のポート番号
+    const toLabel = document.createElementNS(SVG_NS, "text");
+    toLabel.textContent = toPort.name;
+    toLabel.setAttribute("font-size", "12");
+    toLabel.setAttribute("fill", "black");
+    toLabel.setAttribute("pointer-events", "none");
+
+    svg.appendChild(fromLabel);
+    svg.appendChild(toLabel);
+
     //接続情報を保存
     connections.push({
         from: fromDevice.id,
         to: toDevice.id,
         fromPort: fromPort.name,
         toPort: toPort.name,
-        line: line
+        line: line,
+        fromLabel: fromLabel,
+        toLabel: toLabel
     });
+
+    updateConnections();
 
     //ポートを使用済みにする
     fromPort.connected = true;
@@ -161,21 +176,44 @@ function createConnection(fromDevice, toDevice, fromPort, toPort){
 }
 
 //機器の移動に合わせて接続線を更新する関数
+//機器の移動に合わせて接続線とポート番号を更新
 function updateConnections(){
-    
-    connections.forEach(conn =>{
 
-        //接続元と接続先の機器を取得
+    connections.forEach(conn => {
+
         const from = devices.find(d => d.id === conn.from);
         const to = devices.find(d => d.id === conn.to);
 
         if(!from || !to) return;
 
-        //機器の中心座標に合わせる
-        conn.line.setAttribute("x1", from.x + 52);
-        conn.line.setAttribute("y1", from.y + 32);
-        conn.line.setAttribute("x2", to.x + 52);
-        conn.line.setAttribute("y2", to.y + 32);
+        const x1 = from.x + 52;
+        const y1 = from.y + 32;
+        const x2 = to.x + 52;
+        const y2 = to.y + 32;
+
+        //接続線を更新
+        conn.line.setAttribute("x1", x1);
+        conn.line.setAttribute("y1", y1);
+        conn.line.setAttribute("x2", x2);
+        conn.line.setAttribute("y2", y2);
+
+        //線の方向を計算
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.hypot(dx, dy) || 1;
+
+        const ux = dx / length;
+        const uy = dy / length;
+
+        //接続元のポート番号
+        conn.fromLabel.setAttribute("x", x1 + ux * 65);
+        conn.fromLabel.setAttribute("y", y1 + uy * 65 - 10);
+        conn.fromLabel.setAttribute("text-anchor", "middle");
+
+        //接続先のポート番号
+        conn.toLabel.setAttribute("x", x2 - ux * 65);
+        conn.toLabel.setAttribute("y", y2 - uy * 65 - 10);
+        conn.toLabel.setAttribute("text-anchor", "middle");
     });
 }
 
@@ -248,22 +286,30 @@ function deleteConnection(){
         const from = devices.find(d => d.id === conn.from);
         const to = devices.find(d => d.id === conn.to);
 
+        //接続元のポートを未使用に戻す
         if(from){
             const port = from.ports.find(p => p.name === conn.fromPort);
             if(port) port.connected = false;
         }
 
+        //接続先のポートを未使用に戻す
         if(to){
             const port = to.ports.find(p => p.name === conn.toPort);
             if(port) port.connected = false;
         }
 
+        //接続線とポート番号を削除
+        conn.line.remove();
+        conn.fromLabel.remove();
+        conn.toLabel.remove();
+
+        //接続情報を削除
         connections.splice(index, 1);
     }
 
-    selectedConnection.remove();
     selectedConnection = null;
 }
+
 
 //機器と接続線を削除する関数
 function deleteDevice(){
@@ -298,6 +344,9 @@ function deleteDevice(){
             }
 
             conn.line.remove();
+            conn.fromLabel.remove();
+            conn.toLabel.remove();
+
             connections.splice(i, 1);
         }
     }
