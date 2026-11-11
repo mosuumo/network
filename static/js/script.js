@@ -361,6 +361,9 @@ function deleteDevice(){
     //HTML要素を削除
     deleteTarget.element.remove();
     deleteTarget = null;
+
+    //機器情報パネルを閉じる
+    document.getElementById("device-panel").classList.add("hidden");    
 }
 
 
@@ -397,6 +400,38 @@ function createPorts(type){
     return [];
 }
 
+
+//機器情報を表示する関数
+function showDeviceInfo(device){
+
+    const panel = document.getElementById("device-panel");
+
+    document.getElementById("device-title").textContent =
+        `${device.name}の情報`;
+
+    document.getElementById("device-name").textContent = device.name;
+    document.getElementById("device-type").textContent = device.type;
+
+    const portList = document.getElementById("device-ports");
+    portList.innerHTML = "";
+
+    device.ports.forEach(port => {
+
+        const p = document.createElement("p");
+
+        p.textContent =
+            `${port.name}：${port.connected ? "接続中" : "未使用"}`;
+
+        portList.appendChild(p);
+    });
+
+    panel.classList.remove("hidden");
+}
+
+//機器情報パネルを閉じる
+document.getElementById("device-close").addEventListener("click", () => {
+    document.getElementById("device-panel").classList.add("hidden");
+});
 
 //機器を追加する関数
 function addDevice(type){
@@ -490,6 +525,9 @@ function addDevice(type){
         //削除対象として選択
         deleteTarget = {device, element};
         element.classList.add("delete-selected");
+
+        //機器情報を表示
+        showDeviceInfo(device);
     });
 
 };

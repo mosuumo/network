@@ -108,3 +108,25 @@ body {
 .port-button:hover {
     background: lightblue;
 }
+
+/* 機器情報パネル */
+#device-panel {
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    width: 280px;
+    padding: 20px;
+    background: white;
+    border: 2px solid #333;
+    border-radius: 8px;
+    z-index: 100;
+}
+
+#device-panel.hidden {
+    display: none;
+}
+
+#device-ports {
+    max-height: 200px;
+    overflow-y: auto;
+}

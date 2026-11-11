@@ -25,6 +25,18 @@
             <button id="port-cancel">キャンセル</button>
         </div>
     </div>
+    <!-- 機器情報パネル -->
+    <div id="device-panel" class="hidden">
+        <h3 id="device-title">機器情報</h3>
+
+        <p>機器名：<span id="device-name"></span></p>
+        <p>機器種別：<span id="device-type"></span></p>
+
+        <h4>ポート情報</h4>
+        <div id="device-ports"></div>
+
+        <button id="device-close">閉じる</button>
+    </div>
     <div id="canvas">
         <!-- 接続モード -->
         <svg id="connections"></svg>
