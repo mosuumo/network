@@ -433,8 +433,82 @@ function showDeviceInfo(device){
     //現在表示している機器を記録
     panel.dataset.deviceId = device.id;    
 
+    //PCのネットワーク設定
+    const pcNetwork = document.getElementById("pc-network");
+
+    if(device.type === "PC"){
+
+        pcNetwork.classList.remove("hidden");
+
+        if(!device.network){
+            device.network = {
+                ip: "",
+                mask: "",
+                gateway: ""
+            };
+        }
+
+        document.getElementById("pc-ip").value = device.network.ip;
+        document.getElementById("pc-mask").value = device.network.mask;
+        document.getElementById("pc-gateway").value = device.network.gateway;
+
+    }else{
+        pcNetwork.classList.add("hidden");
+    }
+
+    //機器を選択したときは基本情報タブを表示
+    switchDeviceTab("basic");
+
     panel.classList.remove("hidden");
 }
+
+//PCのネットワーク設定を自動保存
+function savePCNetwork(){
+
+    const panel = document.getElementById("device-panel");
+    const id = panel.dataset.deviceId;
+
+    const device = devices.find(d => d.id === id);
+
+    if(!device || device.type !== "PC") return;
+
+    device.network = {
+        ip: document.getElementById("pc-ip").value,
+        mask: document.getElementById("pc-mask").value,
+        gateway: document.getElementById("pc-gateway").value
+    };
+}
+
+//入力時に自動保存
+document.getElementById("pc-ip").addEventListener("input", savePCNetwork);
+document.getElementById("pc-mask").addEventListener("input", savePCNetwork);
+document.getElementById("pc-gateway").addEventListener("input", savePCNetwork);
+
+//機器情報パネルのタブ切り替え
+function switchDeviceTab(tabName){
+
+    document.querySelectorAll(".tab-content").forEach(tab => {
+        tab.classList.add("hidden");
+    });
+
+    document.querySelectorAll(".tab-button").forEach(button => {
+        button.classList.remove("active");
+    });
+
+    document.getElementById(`tab-${tabName}`).classList.remove("hidden");
+
+    document.querySelector(`.tab-button[data-tab="${tabName}"]`)
+        .classList.add("active");
+}
+
+//タブボタンのクリック処理
+document.querySelectorAll(".tab-button").forEach(button => {
+
+    button.addEventListener("click", () => {
+        switchDeviceTab(button.dataset.tab);
+    });
+
+});
 
 //全体のコマンド入力欄を自動保存
 document.getElementById("device-command").addEventListener("input", () => {
@@ -553,7 +627,12 @@ function addDevice(type, savedDevice = null){
         y: 100 + devices.length * 30,
         ports: createPorts(type),
         command: "",
-        records: []
+        records: [],
+        network: {
+            ip: "",
+            mask: "",
+            gateway: ""
+        }
     };
 
     devices.push(device);

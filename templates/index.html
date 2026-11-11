@@ -28,27 +28,74 @@
             <button id="port-cancel">キャンセル</button>
         </div>
     </div>
+    
     <!-- 機器情報パネル -->
     <div id="device-panel" class="hidden">
+
         <h3 id="device-title">機器情報</h3>
 
-        <p>機器名：<span id="device-name"></span></p>
-        <p>機器種別：<span id="device-type"></span></p>
+        <!-- タブ切り替え -->
+        <div id="device-tabs">
+            <button class="tab-button active" data-tab="basic">基本情報</button>
+            <button class="tab-button" data-tab="ports">ポート</button>
+            <button class="tab-button" data-tab="commands">コマンド</button>
+            <button class="tab-button" data-tab="records">実行記録</button>
+        </div>
 
-        <h4>ポート情報</h4>
-        <div id="device-ports"></div>
-        <h4>全体のコマンド入力欄</h4>
-        <textarea id="device-command"
-            placeholder="機器に入力したコマンドをまとめて記録"></textarea>
+        <!-- 基本情報 -->
+        <div id="tab-basic" class="tab-content">
 
+            <p>機器名：<span id="device-name"></span></p>
+            <p>機器種別：<span id="device-type"></span></p>
 
-        <h4>コマンド・実行結果の記録</h4>
+            <!-- PCのネットワーク設定 -->
+            <div id="pc-network" class="hidden">
 
-        <div id="device-records"></div>
+                <h4>ネットワーク設定</h4>
 
-        <button id="record-add">記録を追加</button>
+                <label for="pc-ip">IPアドレス</label>
+                <input type="text" id="pc-ip" placeholder="192.168.1.1">
+
+                <label for="pc-mask">サブネットマスク</label>
+                <input type="text" id="pc-mask" placeholder="255.255.255.0">
+
+                <label for="pc-gateway">Default Gateway</label>
+                <input type="text" id="pc-gateway" placeholder="192.168.1.254">
+
+            </div>
+
+        </div>
+
+        <!-- ポート情報 -->
+        <div id="tab-ports" class="tab-content hidden">
+
+            <h4>ポート情報</h4>
+            <div id="device-ports"></div>
+
+        </div>
+
+        <!-- 全体コマンド -->
+        <div id="tab-commands" class="tab-content hidden">
+
+            <h4>全体のコマンド入力欄</h4>
+            <textarea id="device-command"
+                placeholder="機器に入力したコマンドをまとめて記録"></textarea>
+
+        </div>
+
+        <!-- 実行記録 -->
+        <div id="tab-records" class="tab-content hidden">
+
+            <h4>コマンド・実行結果の記録</h4>
+
+            <div id="device-records"></div>
+
+            <button id="record-add">記録を追加</button>
+
+        </div>
 
         <button id="device-close">閉じる</button>
+
     </div>
     <div id="canvas">
         <!-- 接続モード -->
