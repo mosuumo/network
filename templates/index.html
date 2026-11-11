@@ -7,100 +7,131 @@
 </head>
 <body>
     <h1>Network Topology Editor</h1>
-    <div id="toolbar">
-        <button id="add-pc">PC追加</button>
-        <button id="add-sw">SW追加</button>
-        <button id="add-router">Router追加</button>
-        <button id="connect-mode">接続モード:OFF</button>
-        <button id="delete-device">機器削除</button>
-        <button id="delete-connection">接続線削除</button>
-        <button id="save-topology">保存</button>
-        <button id="load-topology">読み込み</button>
-        <input type="file" id="load-file" accept=".json" hidden>
-    </div>
-    <!-- ポート選択画面 -->
-    <div id="port-modal" class="modal hidden">
-        <div class="modal-content">
-            <h3 id="port-title">ポート選択</h3>
 
-            <div id="port-list"></div>
+     <!-- トポロジーの新規作成と一覧表示を行う画面 -->
+    <section id="topology-manager">
+        <h2>トポロジー管理</h2>
 
-            <button id="port-cancel">キャンセル</button>
-        </div>
-    </div>
-    
-    <!-- 機器情報パネル -->
-    <div id="device-panel" class="hidden">
-
-        <h3 id="device-title">機器情報</h3>
-
-        <!-- タブ切り替え -->
-        <div id="device-tabs">
-            <button class="tab-button active" data-tab="basic">基本情報</button>
-            <button class="tab-button" data-tab="ports">ポート</button>
-            <button class="tab-button" data-tab="commands">コマンド</button>
-            <button class="tab-button" data-tab="records">実行記録</button>
+        <!-- 新しいトポロジーの名前を入力して作成する -->
+        <div>
+            <input type="text" id="topology-name"
+                   placeholder="トポロジー名を入力">
+            <button id="create-topology">新規作成</button>
         </div>
 
-        <!-- 基本情報 -->
-        <div id="tab-basic" class="tab-content">
+        <!-- データベースに保存されているトポロジーを一覧表示する -->
+        <h3>保存済みトポロジー</h3>
+        <ul id="topology-list"></ul>
+    </section>
 
-            <p>機器名：<span id="device-name"></span></p>
-            <p>機器種別：<span id="device-type"></span></p>
+    <!-- 選択したトポロジーを編集する画面 -->
+    <main id="editor" class="hidden">
 
-            <!-- PCのネットワーク設定 -->
-            <div id="pc-network" class="hidden">
+            <!-- トポロジー一覧に戻るボタン -->
+            <button id="back-to-list">一覧に戻る</button>
 
-                <h4>ネットワーク設定</h4>
+            <!-- 現在編集中のトポロジー名を表示する -->
+            <h2 id="current-topology-name">編集中のトポロジー</h2>
 
-                <label for="pc-ip">IPアドレス</label>
-                <input type="text" id="pc-ip" placeholder="192.168.1.1">
+            <!-- 機器の追加や接続などを操作するボタン -->
+        <div id="toolbar">
+            <button id="add-pc">PC追加</button>
+            <button id="add-sw">SW追加</button>
+            <button id="add-router">Router追加</button>
+            <button id="connect-mode">接続モード:OFF</button>
+            <button id="delete-device">機器削除</button>
+            <button id="delete-connection">接続線削除</button>
+            
+            <!-- JSONファイルへの保存・読み込み -->
+            <button id="save-topology">保存</button>
+            <button id="load-topology">読み込み</button>
+            <input type="file" id="load-file" accept=".json" hidden>
+        </div>
+        
+        <!-- ポート選択画面 -->
+        <div id="port-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="port-title">ポート選択</h3>
 
-                <label for="pc-mask">サブネットマスク</label>
-                <input type="text" id="pc-mask" placeholder="255.255.255.0">
+                <div id="port-list"></div>
 
-                <label for="pc-gateway">Default Gateway</label>
-                <input type="text" id="pc-gateway" placeholder="192.168.1.254">
+                <button id="port-cancel">キャンセル</button>
+            </div>
+        </div>
+        
+        <!-- 機器情報パネル -->
+        <div id="device-panel" class="hidden">
+
+            <h3 id="device-title">機器情報</h3>
+
+            <!-- タブ切り替え -->
+            <div id="device-tabs">
+                <button class="tab-button active" data-tab="basic">基本情報</button>
+                <button class="tab-button" data-tab="ports">ポート</button>
+                <button class="tab-button" data-tab="commands">コマンド</button>
+                <button class="tab-button" data-tab="records">実行記録</button>
+            </div>
+
+            <!-- 基本情報 -->
+            <div id="tab-basic" class="tab-content">
+
+                <p>機器名：<span id="device-name"></span></p>
+                <p>機器種別：<span id="device-type"></span></p>
+
+                <!-- PCのネットワーク設定 -->
+                <div id="pc-network" class="hidden">
+
+                    <h4>ネットワーク設定</h4>
+
+                    <label for="pc-ip">IPアドレス</label>
+                    <input type="text" id="pc-ip" placeholder="192.168.1.1">
+
+                    <label for="pc-mask">サブネットマスク</label>
+                    <input type="text" id="pc-mask" placeholder="255.255.255.0">
+
+                    <label for="pc-gateway">Default Gateway</label>
+                    <input type="text" id="pc-gateway" placeholder="192.168.1.254">
+
+                </div>
 
             </div>
 
+            <!-- ポート情報 -->
+            <div id="tab-ports" class="tab-content hidden">
+
+                <h4>ポート情報</h4>
+                <div id="device-ports"></div>
+
+            </div>
+
+            <!-- 全体コマンド -->
+            <div id="tab-commands" class="tab-content hidden">
+
+                <h4>全体のコマンド入力欄</h4>
+                <textarea id="device-command"
+                    placeholder="機器に入力したコマンドをまとめて記録"></textarea>
+
+            </div>
+
+            <!-- 実行記録 -->
+            <div id="tab-records" class="tab-content hidden">
+
+                <h4>コマンド・実行結果の記録</h4>
+
+                <div id="device-records"></div>
+
+                <button id="record-add">記録を追加</button>
+
+            </div>
+
+            <button id="device-close">閉じる</button>
+
         </div>
-
-        <!-- ポート情報 -->
-        <div id="tab-ports" class="tab-content hidden">
-
-            <h4>ポート情報</h4>
-            <div id="device-ports"></div>
-
+        <div id="canvas">
+            <!-- 接続モード -->
+            <svg id="connections"></svg>
         </div>
-
-        <!-- 全体コマンド -->
-        <div id="tab-commands" class="tab-content hidden">
-
-            <h4>全体のコマンド入力欄</h4>
-            <textarea id="device-command"
-                placeholder="機器に入力したコマンドをまとめて記録"></textarea>
-
-        </div>
-
-        <!-- 実行記録 -->
-        <div id="tab-records" class="tab-content hidden">
-
-            <h4>コマンド・実行結果の記録</h4>
-
-            <div id="device-records"></div>
-
-            <button id="record-add">記録を追加</button>
-
-        </div>
-
-        <button id="device-close">閉じる</button>
-
-    </div>
-    <div id="canvas">
-        <!-- 接続モード -->
-        <svg id="connections"></svg>
-    </div>
+    </main>
     <script src="{{ url_for('static', filename='js/script.js')}}"></script>
 </body>
 </html>
