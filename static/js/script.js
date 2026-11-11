@@ -424,9 +424,106 @@ function showDeviceInfo(device){
 
         portList.appendChild(p);
     });
+    
+    //機器に保存されたメモを表示
+    document.getElementById("device-command").value = device.command;
+
+    showRecords(device);
+
+    //現在表示している機器を記録
+    panel.dataset.deviceId = device.id;    
 
     panel.classList.remove("hidden");
 }
+
+//コマンドと実行結果の記録を表示
+function showRecords(device){
+
+    const list = document.getElementById("device-records");
+    list.innerHTML = "";
+
+    device.records.forEach((record, index) => {
+
+        const box = document.createElement("div");
+        box.className = "record-box";
+
+        const title = document.createElement("h4");
+        title.textContent = `記録 ${index + 1}`;
+
+        //コマンド入力欄
+        const command = document.createElement("textarea");
+        command.value = record.command;
+        command.placeholder = "入力コマンド";
+
+        //実行結果入力欄
+        const result = document.createElement("textarea");
+        result.value = record.result;
+        result.placeholder = "実行結果";
+
+        //保存ボタン
+        const save = document.createElement("button");
+        save.textContent = "保存";
+
+        save.addEventListener("click", () => {
+
+            record.command = command.value;
+            record.result = result.value;
+
+            alert(`記録 ${index + 1}を保存しました`);
+        });
+
+        //削除ボタン
+        const del = document.createElement("button");
+        del.textContent = "削除";
+
+        del.addEventListener("click", () => {
+
+            device.records.splice(index, 1);
+            showRecords(device);
+        });
+
+        box.appendChild(title);
+        box.appendChild(command);
+        box.appendChild(result);
+        box.appendChild(save);
+        box.appendChild(del);
+
+        list.appendChild(box);
+    });
+}
+
+//新しい記録を追加
+document.getElementById("record-add").addEventListener("click", () => {
+
+    const panel = document.getElementById("device-panel");
+    const id = panel.dataset.deviceId;
+
+    const device = devices.find(d => d.id === id);
+
+    if(!device) return;
+
+    device.records.push({
+        command: "",
+        result: ""
+    });
+
+    showRecords(device);
+});
+
+//全体のコマンド入力欄を保存
+document.getElementById("device-save").addEventListener("click", () => {
+
+    const panel = document.getElementById("device-panel");
+    const id = panel.dataset.deviceId;
+
+    const device = devices.find(d => d.id === id);
+
+    if(!device) return;
+
+    device.command = document.getElementById("device-command").value;
+
+    alert(`${device.name}のコマンドを保存しました`);
+});
 
 //機器情報パネルを閉じる
 document.getElementById("device-close").addEventListener("click", () => {
@@ -448,7 +545,9 @@ function addDevice(type){
         name: name,
         x: 100 + devices.length * 30,
         y: 100 + devices.length * 30,
-        ports: createPorts(type)
+        ports: createPorts(type),
+        command: "",
+        records: []
     };
 
     devices.push(device);
@@ -525,7 +624,7 @@ function addDevice(type){
         //削除対象として選択
         deleteTarget = {device, element};
         element.classList.add("delete-selected");
-
+        
         //機器情報を表示
         showDeviceInfo(device);
     });
