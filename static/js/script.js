@@ -23,6 +23,108 @@ let deleteTarget = null;
 //削除対象の接続線
 let selectedConnection = null;
 
+
+// 現在編集中のトポロジーID
+// SQLiteで管理されている整数IDを使用する
+let currentTopologyId = null;
+
+
+// FlaskのAPIと通信する共通関数
+async function apiRequest(url, method = "GET", data = null) {
+
+    const options = {
+        method: method,
+        headers: {}
+    };
+
+    // 送信するデータがある場合はJSON形式にする
+    if (data !== null) {
+        options.headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(url, options);
+
+    // Flaskからエラーが返された場合は内容を表示する
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.error || "通信に失敗しました");
+    }
+
+    return result;
+}
+
+
+// 機器の詳細情報をデータベース保存用にまとめる
+function getDeviceDetails(device) {
+
+    return {
+        network: device.network || {
+            ip: "",
+            mask: "",
+            gateway: ""
+        },
+        ports: device.ports || [],
+        command: device.command || "",
+        records: device.records || []
+    };
+}
+
+// 機器の詳細情報をデータベースに保存する
+async function saveDeviceDetails(device) {
+
+    // トポロジーが選択されていない場合は保存しない
+    if (currentTopologyId === null || !device) {
+        return;
+    }
+
+    try {
+        await apiRequest(
+            `/api/devices/${device.id}`,
+            "PUT",
+            {
+                details: getDeviceDetails(device)
+            }
+        );
+
+    } catch (error) {
+        alert("機器情報の保存に失敗しました：" + error.message);
+    }
+}
+
+
+// データベースから取得した機器情報を画面用に変換する
+function convertDevice(savedDevice) {
+
+    const details = savedDevice.details || {};
+
+    return {
+        id: savedDevice.id,
+        type: savedDevice.type,
+        name: savedDevice.name,
+        x: savedDevice.x,
+        y: savedDevice.y,
+
+        // 保存済みのポート情報がなければ初期状態を作成する
+        ports: details.ports && details.ports.length > 0
+            ? details.ports
+            : createPorts(savedDevice.type),
+
+        // 機器ごとのメモや実行記録を復元する
+        command: details.command || "",
+        records: details.records || [],
+
+        // PCのネットワーク設定を復元する
+        network: details.network || {
+            ip: "",
+            mask: "",
+            gateway: ""
+        }
+    };
+}
+
+
 //接続モードの切り替え
 document.getElementById("connect-mode").addEventListener("click", () =>{
     connectMode = !connectMode;
@@ -99,7 +201,7 @@ function selectPort(device){
 }
 
 //接続線を作成する関数
-function createConnection(fromDevice, toDevice, fromPort, toPort){
+function createConnection(fromDevice, toDevice, fromPort, toPort, saveToDatabase = true){
 
     //使用済みポートへの接続を防ぐ
     if(fromPort.connected || toPort.connected) return;  
@@ -157,7 +259,7 @@ function createConnection(fromDevice, toDevice, fromPort, toPort){
     svg.appendChild(toLabel);
 
     //接続情報を保存
-    connections.push({
+    const connection = {
         from: fromDevice.id,
         to: toDevice.id,
         fromPort: fromPort.name,
@@ -165,7 +267,32 @@ function createConnection(fromDevice, toDevice, fromPort, toPort){
         line: line,
         fromLabel: fromLabel,
         toLabel: toLabel
-    });
+    };
+
+    connections.push(connection);
+
+    // 接続情報をデータベースに保存
+    if (saveToDatabase && currentTopologyId !== null) {
+        apiRequest(
+            `/api/topologies/${currentTopologyId}/connections`,
+            "POST",
+            {
+                source_device_id: connection.from,
+                target_device_id: connection.to,
+                source_port: connection.fromPort,
+                target_port: connection.toPort
+            }
+        )
+        .then(result => {
+
+            // 削除時に使用するデータベース上の接続IDを保持
+            connection.databaseId = result.connection_id;
+
+        })
+        .catch(error => {
+            alert("接続情報の保存に失敗しました：" + error.message);
+        });
+    }
 
     updateConnections();
 
@@ -270,7 +397,7 @@ async function selectForConnection(device, element){
     resetConnectMode();
 }
 
-//選択した接続線を削除する関数
+// 選択した接続線を削除する関数
 function deleteConnection(){
 
     if(selectedConnection === null) return;
@@ -286,24 +413,34 @@ function deleteConnection(){
         const from = devices.find(d => d.id === conn.from);
         const to = devices.find(d => d.id === conn.to);
 
-        //接続元のポートを未使用に戻す
+        // 接続元のポートを未使用に戻す
         if(from){
             const port = from.ports.find(p => p.name === conn.fromPort);
             if(port) port.connected = false;
         }
 
-        //接続先のポートを未使用に戻す
+        // 接続先のポートを未使用に戻す
         if(to){
             const port = to.ports.find(p => p.name === conn.toPort);
             if(port) port.connected = false;
         }
 
-        //接続線とポート番号を削除
+        // 接続線とポート番号を削除
         conn.line.remove();
         conn.fromLabel.remove();
         conn.toLabel.remove();
 
-        //接続情報を削除
+        // データベースから接続情報を削除
+        if(conn.databaseId){
+            apiRequest(
+                `/api/connections/${conn.databaseId}`,
+                "DELETE"
+            ).catch(error => {
+                alert("接続情報の削除に失敗しました：" + error.message);
+            });
+        }
+
+        // 接続情報を配列から削除
         connections.splice(index, 1);
     }
 
@@ -311,14 +448,14 @@ function deleteConnection(){
 }
 
 
-//機器と接続線を削除する関数
-function deleteDevice(){
+// 機器と接続線を削除する関数
+async function deleteDevice(){
 
     if(deleteTarget === null) return;
 
     const id = deleteTarget.device.id;
 
-    //接続線を削除
+    // 接続線を削除
     for(let i = connections.length - 1; i >= 0; i--){
 
         if(connections[i].from === id || connections[i].to === id){
@@ -329,7 +466,7 @@ function deleteDevice(){
                 selectedConnection = null;
             }
 
-            //接続相手のポートを未使用に戻す
+            // 接続相手のポートを未使用に戻す
             const otherId = conn.from === id ? conn.to : conn.from;
             const otherPort = conn.from === id ? conn.toPort : conn.fromPort;
 
@@ -343,6 +480,20 @@ function deleteDevice(){
                 if(port) port.connected = false;
             }
 
+            // データベースから接続情報を削除
+            if(conn.databaseId){
+                try {
+                    await apiRequest(
+                        `/api/connections/${conn.databaseId}`,
+                        "DELETE"
+                    );
+                } catch (error) {
+                    alert("接続情報の削除に失敗しました：" + error.message);
+                    return;
+                }
+            }
+
+            // 接続線とポート番号を削除
             conn.line.remove();
             conn.fromLabel.remove();
             conn.toLabel.remove();
@@ -351,19 +502,30 @@ function deleteDevice(){
         }
     }
 
-    //機器情報を削除
+    // データベースから機器情報を削除
+    try {
+        await apiRequest(
+            `/api/devices/${id}`,
+            "DELETE"
+        );
+    } catch (error) {
+        alert("機器情報の削除に失敗しました：" + error.message);
+        return;
+    }
+
+    // 機器情報を配列から削除
     const index = devices.findIndex(d => d.id === id);
 
     if(index !== -1){
         devices.splice(index, 1);
     }
 
-    //HTML要素を削除
+    // HTML要素を削除
     deleteTarget.element.remove();
     deleteTarget = null;
 
-    //機器情報パネルを閉じる
-    document.getElementById("device-panel").classList.add("hidden");    
+    // 機器情報パネルを閉じる
+    document.getElementById("device-panel").classList.add("hidden");
 }
 
 
@@ -462,21 +624,25 @@ function showDeviceInfo(device){
     panel.classList.remove("hidden");
 }
 
-//PCのネットワーク設定を自動保存
+// PCのネットワーク設定を更新してデータベースに保存する
 function savePCNetwork(){
 
     const panel = document.getElementById("device-panel");
     const id = panel.dataset.deviceId;
+    const device = devices.find(d => String(d.id) === id);
 
-    const device = devices.find(d => d.id === id);
-
+    // PC以外の場合は処理しない
     if(!device || device.type !== "PC") return;
 
+    // 入力されたネットワーク設定を反映
     device.network = {
         ip: document.getElementById("pc-ip").value,
         mask: document.getElementById("pc-mask").value,
         gateway: document.getElementById("pc-gateway").value
     };
+
+    // 更新した詳細情報をデータベースに保存
+    saveDeviceDetails(device);
 }
 
 //入力時に自動保存
@@ -516,14 +682,17 @@ document.getElementById("device-command").addEventListener("input", () => {
     const panel = document.getElementById("device-panel");
     const id = panel.dataset.deviceId;
 
-    const device = devices.find(d => d.id === id);
+    const device = devices.find(d => String(d.id) === id);
 
     if(!device) return;
 
     device.command = document.getElementById("device-command").value;
+
+    // データベースに保存
+    saveDeviceDetails(device);
 });
 
-//コマンドと実行結果の記録を表示
+// コマンドと実行結果の記録を表示
 function showRecords(device){
 
     const list = document.getElementById("device-records");
@@ -537,33 +706,42 @@ function showRecords(device){
         const title = document.createElement("h4");
         title.textContent = `記録 ${index + 1}`;
 
-        //コマンド入力欄
+        // コマンド入力欄
         const command = document.createElement("textarea");
         command.value = record.command;
         command.placeholder = "入力コマンド";
 
-        //入力時に自動保存
+        // 入力内容を反映してデータベースに保存
         command.addEventListener("input", () => {
             record.command = command.value;
+            saveDeviceDetails(device);
         });
 
-        //実行結果入力欄
+        // 実行結果入力欄
         const result = document.createElement("textarea");
         result.value = record.result;
         result.placeholder = "実行結果";
 
-        //入力時に自動保存
+        // 入力内容を反映してデータベースに保存
         result.addEventListener("input", () => {
             record.result = result.value;
+            saveDeviceDetails(device);
         });
 
-        //削除ボタン
+        // 削除ボタン
         const del = document.createElement("button");
         del.textContent = "削除";
 
         del.addEventListener("click", () => {
+
+            // 指定した記録を削除
             device.records.splice(index, 1);
+
+            // 表示を更新
             showRecords(device);
+
+            // 削除後の情報をデータベースに保存
+            saveDeviceDetails(device);
         });
 
         box.appendChild(title);
@@ -581,7 +759,7 @@ document.getElementById("record-add").addEventListener("click", () => {
     const panel = document.getElementById("device-panel");
     const id = panel.dataset.deviceId;
 
-    const device = devices.find(d => d.id === id);
+    const device = devices.find(d => String(d.id) === id);
 
     if(!device) return;
 
@@ -590,7 +768,11 @@ document.getElementById("record-add").addEventListener("click", () => {
         result: ""
     });
 
+    // 記録一覧を更新
     showRecords(device);
+
+    // データベースに保存
+    saveDeviceDetails(device);
 });
 
 
@@ -684,8 +866,28 @@ function addDevice(type, savedDevice = null){
         updateConnections();
     });
 
-    element.addEventListener("pointerup", () =>{
+    // 機器の移動が終了したときに座標を保存
+    element.addEventListener("pointerup", async () => {
+
         dragging = false;
+
+        // トポロジーが選択されている場合はDBを更新
+        if (currentTopologyId !== null) {
+
+            try {
+                await apiRequest(
+                    `/api/devices/${device.id}`,
+                    "PUT",
+                    {
+                        x: device.x,
+                        y: device.y
+                    }
+                );
+
+            } catch (error) {
+                alert("機器の座標保存に失敗しました：" + error.message);
+            }
+        }
     });
 
     element.addEventListener("pointercancel", () =>{
@@ -717,17 +919,77 @@ function addDevice(type, savedDevice = null){
 };
 
 
-//ボタンと関数の対応付け
-document.getElementById("add-pc").addEventListener("click", () =>{
-    addDevice("PC");
+// データベースに機器を追加する
+async function addDeviceToDatabase(type) {
+
+    // トポロジーが選択されているか確認
+    if (currentTopologyId === null) {
+        alert("トポロジーを選択してください");
+        return;
+    }
+
+    // 機器の名前と初期座標を決定
+    const name = type + deviceCount[type];
+    const x = 100 + devices.length * 30;
+    const y = 100 + devices.length * 30;
+
+    try {
+        // FlaskのAPIを通じて機器情報を保存
+        const result = await apiRequest(
+            `/api/topologies/${currentTopologyId}/devices`,
+            "POST",
+            {
+                type: type,
+                name: name,
+                x: x,
+                y: y,
+                details: {
+                    network: {
+                        ip: "",
+                        mask: "",
+                        gateway: ""
+                    },
+                    ports: [],
+                    command: "",
+                    records: []
+                }
+            }
+        );
+
+        // データベースから返されたIDを使って画面に追加
+        addDevice(type, {
+            id: result.device_id,
+            type: type,
+            name: name,
+            x: x,
+            y: y,
+            ports: createPorts(type),
+            command: "",
+            records: [],
+            network: {
+                ip: "",
+                mask: "",
+                gateway: ""
+            }
+        });
+
+    } catch (error) {
+        alert("機器の保存に失敗しました：" + error.message);
+    }
+}
+
+
+// 各機器の追加ボタン
+document.getElementById("add-pc").addEventListener("click", () => {
+    addDeviceToDatabase("PC");
 });
 
-document.getElementById("add-sw").addEventListener("click", () =>{
-    addDevice("SW");
+document.getElementById("add-sw").addEventListener("click", () => {
+    addDeviceToDatabase("SW");
 });
 
-document.getElementById("add-router").addEventListener("click", () =>{
-    addDevice("Router");
+document.getElementById("add-router").addEventListener("click", () => {
+    addDeviceToDatabase("Router");
 });
 
 document.getElementById("delete-device").addEventListener("click", () => {
@@ -814,7 +1076,12 @@ function loadTopology(data){
         fromPort.connected = false;
         toPort.connected = false;
 
-        createConnection(from, to, fromPort, toPort);
+        // 保存済みの接続を復元するため、データベースへの再保存は行わない
+        createConnection(from, to, fromPort, toPort, false);
+
+        // 復元した接続にデータベース上のIDを引き継ぐ
+        const restoredConnection = connections[connections.length - 1];
+        restoredConnection.databaseId = conn.databaseId;
     });
 }
 
@@ -852,4 +1119,166 @@ document.getElementById("load-file").addEventListener("change", async (e) => {
     }
 
     e.target.value = "";
+});
+
+// データベースに保存されているトポロジー一覧を表示する
+async function loadTopologyList() {
+
+    const list = document.getElementById("topology-list");
+
+    try {
+        const topologies = await apiRequest("/api/topologies");
+
+        // 一覧を初期化する
+        list.innerHTML = "";
+
+        topologies.forEach(topology => {
+
+            const item = document.createElement("li");
+
+            // トポロジーを選択するボタン 
+            const button = document.createElement("button");
+            button.textContent = topology.name;
+
+            // 選択したトポロジーを読み込む
+            button.addEventListener("click", () => {
+                openTopology(topology.id);
+            });
+
+            // トポロジーを削除するボタン
+            const deleteButton = document.createElement("button");
+            deleteButton.textContent = "削除";
+
+            deleteButton.addEventListener("click", async () => {
+
+                // 誤操作を防ぐため確認する
+                if (!confirm(`「${topology.name}」を削除しますか？`)) {
+                    return;
+                }
+
+                try {
+                    // データベースからトポロジーを削除
+                    await apiRequest(
+                        `/api/topologies/${topology.id}`,
+                        "DELETE"
+                    );
+
+                    // 削除後に一覧を更新
+                    loadTopologyList();
+
+                } catch (error) {
+                    alert("トポロジーの削除に失敗しました：" + error.message);
+                }
+            });
+
+            item.appendChild(button);
+            item.appendChild(deleteButton);
+            list.appendChild(item);
+        });
+
+    } catch (error) {
+        alert("トポロジー一覧の取得に失敗しました：" + error.message);
+    }
+}
+
+
+// 新しいトポロジーを作成する
+async function createTopology() {
+
+    const nameInput = document.getElementById("topology-name");
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        alert("トポロジー名を入力してください");
+        return;
+    }
+
+    try {
+        const result = await apiRequest(
+            "/api/topologies",
+            "POST",
+            { name: name }
+        );
+
+        // 作成したトポロジーを開く
+        nameInput.value = "";
+        await loadTopologyList();
+        await openTopology(result.topology_id);
+
+    } catch (error) {
+        alert("トポロジーの作成に失敗しました：" + error.message);
+    }
+}
+
+
+// 選択したトポロジーを読み込む
+async function openTopology(topologyId) {
+
+    try {
+        const data = await apiRequest(`/api/topologies/${topologyId}`);
+
+        // 現在編集中のトポロジーIDを更新する
+        currentTopologyId = data.id;
+
+        // 画面上のトポロジー名を更新する
+        document.getElementById("current-topology-name").textContent =
+            data.name;
+
+        // データベースの情報を既存の画面用データに変換する
+        const topologyData = {
+            devices: data.devices.map(convertDevice),
+
+            connections: data.connections.map(connection => ({
+                
+                // 接続元・接続先の機器ID
+                from: connection.source_device_id,
+                to: connection.target_device_id,
+                
+                // 接続に使用しているポート番号
+                fromPort: connection.source_port,
+                toPort: connection.target_port,
+
+                // データベース上の接続IDを保持
+                databaseId: connection.id
+            }))
+        };
+
+        // 既存の読み込み処理を利用して画面に反映する
+        loadTopology(topologyData);
+
+        // 一覧画面から編集画面に切り替える
+        document.getElementById("topology-manager").classList.add("hidden");
+        document.getElementById("editor").classList.remove("hidden");
+
+    } catch (error) {
+        alert("トポロジーの読み込みに失敗しました：" + error.message);
+    }
+}
+
+// 新規作成ボタンの処理
+document.getElementById("create-topology").addEventListener(
+    "click",
+    createTopology
+);
+
+// ページ起動時にトポロジー一覧を取得する
+loadTopologyList();
+
+// トポロジー編集画面から一覧画面に戻る
+document.getElementById("back-to-list").addEventListener("click", () => {
+
+    // 編集画面を非表示にする
+    document.getElementById("editor").classList.add("hidden");
+
+    // トポロジー管理画面を表示する
+    document.getElementById("topology-manager").classList.remove("hidden");
+
+    // 選択中の機器情報パネルを閉じる
+    document.getElementById("device-panel").classList.add("hidden");
+
+    // トポロジー一覧を最新の状態に更新する
+    loadTopologyList();
+
+    // 現在のトポロジーIDを解除する
+    currentTopologyId = null;
 });

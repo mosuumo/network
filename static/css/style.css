@@ -115,11 +115,18 @@ body {
     top: 100px;
     right: 20px;
     width: 280px;
+    max-height: calc(100vh - 120px);
     padding: 20px;
     background: white;
     border: 2px solid #333;
     border-radius: 8px;
     z-index: 100;
+
+    /* パネル全体の高さを制限する */
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 #device-panel.hidden {
@@ -189,6 +196,16 @@ body {
     border-color: #007bff;
 }
 
+/* タブ内の入力欄をスクロール可能にする */
+.tab-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 5px;
+}
+
+/* 非表示のタブは表示しない */
 .tab-content.hidden {
     display: none;
 }
