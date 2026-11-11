@@ -436,6 +436,19 @@ function showDeviceInfo(device){
     panel.classList.remove("hidden");
 }
 
+//全体のコマンド入力欄を自動保存
+document.getElementById("device-command").addEventListener("input", () => {
+
+    const panel = document.getElementById("device-panel");
+    const id = panel.dataset.deviceId;
+
+    const device = devices.find(d => d.id === id);
+
+    if(!device) return;
+
+    device.command = document.getElementById("device-command").value;
+});
+
 //コマンドと実行結果の記録を表示
 function showRecords(device){
 
@@ -455,21 +468,19 @@ function showRecords(device){
         command.value = record.command;
         command.placeholder = "入力コマンド";
 
+        //入力時に自動保存
+        command.addEventListener("input", () => {
+            record.command = command.value;
+        });
+
         //実行結果入力欄
         const result = document.createElement("textarea");
         result.value = record.result;
         result.placeholder = "実行結果";
 
-        //保存ボタン
-        const save = document.createElement("button");
-        save.textContent = "保存";
-
-        save.addEventListener("click", () => {
-
-            record.command = command.value;
+        //入力時に自動保存
+        result.addEventListener("input", () => {
             record.result = result.value;
-
-            alert(`記録 ${index + 1}を保存しました`);
         });
 
         //削除ボタン
@@ -477,7 +488,6 @@ function showRecords(device){
         del.textContent = "削除";
 
         del.addEventListener("click", () => {
-
             device.records.splice(index, 1);
             showRecords(device);
         });
@@ -485,7 +495,6 @@ function showRecords(device){
         box.appendChild(title);
         box.appendChild(command);
         box.appendChild(result);
-        box.appendChild(save);
         box.appendChild(del);
 
         list.appendChild(box);
@@ -510,20 +519,6 @@ document.getElementById("record-add").addEventListener("click", () => {
     showRecords(device);
 });
 
-//全体のコマンド入力欄を保存
-document.getElementById("device-save").addEventListener("click", () => {
-
-    const panel = document.getElementById("device-panel");
-    const id = panel.dataset.deviceId;
-
-    const device = devices.find(d => d.id === id);
-
-    if(!device) return;
-
-    device.command = document.getElementById("device-command").value;
-
-    alert(`${device.name}のコマンドを保存しました`);
-});
 
 //機器情報パネルを閉じる
 document.getElementById("device-close").addEventListener("click", () => {
