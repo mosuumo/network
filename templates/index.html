@@ -46,7 +46,95 @@
             <button id="save-topology">保存</button>
             <button id="load-topology">読み込み</button>
             <input type="file" id="load-file" accept=".json" hidden>
+
+            <!-- VLANテーブルを表示する -->
+            <button id="show-vlan-table">VLANテーブル</button>
+
+            <!-- IPアドレステーブルを表示する -->
+            <button id="show-ip-table">IPアドレステーブル</button>
+
+            <!-- ポート割り当てテーブルを表示する -->
+            <button id="show-port-table">ポート割り当てテーブル</button>
         </div>
+
+
+        <!-- VLANテーブルの表示領域 -->
+        <section id="vlan-table-area" class="hidden">
+
+            <h3>VLANテーブル</h3>
+
+            <!-- VLAN情報をJavaScriptで表示する -->
+            <table id="vlan-table">
+                <thead>
+                    <tr>
+                        <th>機器名</th>
+                        <th>ポート番号</th>
+                        <th>VLAN ID</th>
+                        <th>VLAN名</th>
+                    </tr>
+                </thead>
+
+                <tbody id="vlan-table-body">
+                </tbody>
+            </table>
+
+            <!-- VLANテーブルを閉じる -->
+            <button id="close-vlan-table">閉じる</button>
+
+        </section>
+
+
+        <!-- IPアドレステーブルの表示領域 -->
+        <section id="ip-table-area" class="hidden">
+
+            <h3>IPアドレステーブル</h3>
+
+            <!-- IPアドレス情報をJavaScriptで表示する -->
+            <table id="ip-table">
+                <thead>
+                    <tr>
+                        <th>機器名</th>
+                        <th>IPアドレス</th>
+                        <th>サブネットマスク</th>
+                        <th>デフォルトゲートウェイ</th>
+                    </tr>
+                </thead>
+
+                <tbody id="ip-table-body">
+                </tbody>
+            </table>
+
+            <!-- IPアドレステーブルを閉じる -->
+            <button id="close-ip-table">閉じる</button>
+
+        </section>
+
+
+        <!-- ポート割り当てテーブルの表示領域 -->
+        <section id="port-table-area" class="hidden">
+
+            <h3>ポート割り当てテーブル</h3>
+
+            <!-- ポートの接続情報をJavaScriptで表示する -->
+            <table id="port-table">
+                <thead>
+                    <tr>
+                        <th>機器名</th>
+                        <th>ポート番号</th>
+                        <th>接続先機器</th>
+                        <th>接続先ポート</th>
+                    </tr>
+                </thead>
+
+                <tbody id="port-table-body">
+                </tbody>
+            </table>
+
+            <!-- テーブルを閉じる -->
+            <button id="close-port-table">閉じる</button>
+
+        </section>
+
         
         <!-- ポート選択画面 -->
         <div id="port-modal" class="modal hidden">

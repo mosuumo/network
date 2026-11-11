@@ -106,9 +106,13 @@ function convertDevice(savedDevice) {
         x: savedDevice.x,
         y: savedDevice.y,
 
-        // 保存済みのポート情報がなければ初期状態を作成する
+        // 保存済みポートにVLAN情報がなければ初期値を追加する
         ports: details.ports && details.ports.length > 0
-            ? details.ports
+            ? details.ports.map(port => ({
+                ...port,
+                vlanId: port.vlanId ?? "",
+                vlanName: port.vlanName ?? ""
+            }))
             : createPorts(savedDevice.type),
 
         // 機器ごとのメモや実行記録を復元する
@@ -529,33 +533,41 @@ async function deleteDevice(){
 }
 
 
-//機器の種類に応じたポート情報を作成
+// 機器の種類に応じたポート情報を作成
 function createPorts(type){
+
+    // 各ポートに共通する初期情報
+    const createPort = (name) => ({
+        name: name,
+        connected: false,
+        vlanId: "",
+        vlanName: ""
+    });
 
     if(type === "PC"){
         return [
-            { name: "Fa0", connected: false }
+            createPort("Fa0")
         ];
     }
 
     if(type === "SW"){
         return [
-            ...Array.from({length: 24}, (_, i) => ({
-                name: `Fa0/${i + 1}`,
-                connected: false
-            })),
+            // FastEthernetポートを24個作成
+            ...Array.from({length: 24}, (_, i) =>
+                createPort(`Fa0/${i + 1}`)
+            ),
 
-            ...Array.from({length: 2}, (_, i) => ({
-                name: `Gi0/${i + 1}`,
-                connected: false
-            }))
+            // GigabitEthernetポートを2個作成
+            ...Array.from({length: 2}, (_, i) =>
+                createPort(`Gi0/${i + 1}`)
+            )
         ];
     }
 
     if(type === "Router"){
         return [
-            { name: "Gi0/0", connected: false },
-            { name: "Gi0/1", connected: false }
+            createPort("Gi0/0"),
+            createPort("Gi0/1")
         ];
     }
 
@@ -577,14 +589,52 @@ function showDeviceInfo(device){
     const portList = document.getElementById("device-ports");
     portList.innerHTML = "";
 
+    // 各ポートの情報とVLAN設定欄を表示
     device.ports.forEach(port => {
 
-        const p = document.createElement("p");
+        const box = document.createElement("div");
 
+        // ポート番号と接続状態
+        const p = document.createElement("p");
         p.textContent =
             `${port.name}：${port.connected ? "接続中" : "未使用"}`;
 
-        portList.appendChild(p);
+        box.appendChild(p);
+
+        // VLAN設定欄はスイッチの場合だけ表示
+        if (device.type === "SW") {
+
+            // VLAN ID入力欄
+            const vlanId = document.createElement("input");
+            vlanId.type = "number";
+            vlanId.min = "1";
+            vlanId.max = "4094";
+            vlanId.placeholder = "VLAN ID";
+            vlanId.value = port.vlanId || "";
+
+            // VLAN名入力欄
+            const vlanName = document.createElement("input");
+            vlanName.type = "text";
+            vlanName.placeholder = "VLAN名";
+            vlanName.value = port.vlanName || "";
+
+            // VLAN IDを更新して保存
+            vlanId.addEventListener("change", () => {
+                port.vlanId = vlanId.value;
+                saveDeviceDetails(device);
+            });
+
+            // VLAN名を更新して保存
+            vlanName.addEventListener("change", () => {
+                port.vlanName = vlanName.value;
+                saveDeviceDetails(device);
+            });
+
+            box.appendChild(vlanId);
+            box.appendChild(vlanName);
+        }
+
+        portList.appendChild(box);
     });
     
     //機器に保存されたメモを表示
@@ -1281,4 +1331,184 @@ document.getElementById("back-to-list").addEventListener("click", () => {
 
     // 現在のトポロジーIDを解除する
     currentTopologyId = null;
+});
+
+// VLANテーブルを生成して表示する
+function showVlanTable() {
+
+    const area = document.getElementById("vlan-table-area");
+    const tableBody = document.getElementById("vlan-table-body");
+
+    // テーブルの内容を初期化
+    tableBody.innerHTML = "";
+
+    // すべてのスイッチからVLAN情報を取得
+    devices.forEach(device => {
+
+        // スイッチ以外は対象外
+        if (device.type !== "SW") return;
+
+        device.ports.forEach(port => {
+
+            // VLAN IDが設定されていないポートは表示しない
+            if (!port.vlanId) return;
+
+            const row = document.createElement("tr");
+
+            // 各項目をテーブルに追加
+            const values = [
+                device.name,
+                port.name,
+                port.vlanId,
+                port.vlanName || ""
+            ];
+
+            values.forEach(value => {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+
+            tableBody.appendChild(row);
+        });
+    });
+
+    // テーブルを表示
+    area.classList.remove("hidden");
+}
+
+// VLANテーブルボタンのクリック処理
+document.getElementById("show-vlan-table").addEventListener("click", () => {
+    showVlanTable();
+});
+
+// VLANテーブルを閉じる
+document.getElementById("close-vlan-table").addEventListener("click", () => {
+    document.getElementById("vlan-table-area").classList.add("hidden");
+});
+
+
+// IPアドレステーブルを生成して表示する
+function showIpTable() {
+
+    const area = document.getElementById("ip-table-area");
+    const tableBody = document.getElementById("ip-table-body");
+
+    // テーブルの内容を初期化
+    tableBody.innerHTML = "";
+
+    // すべてのPCからネットワーク情報を取得
+    devices.forEach(device => {
+
+        // PC以外は対象外
+        if (device.type !== "PC") return;
+
+        // ネットワーク情報がない場合は対象外
+        if (!device.network) return;
+
+        // IPアドレスが未設定の場合は表示しない
+        if (!device.network.ip) return;
+
+        // テーブルの行を作成
+        const row = document.createElement("tr");
+
+        const values = [
+            device.name,
+            device.network.ip,
+            device.network.mask || "",
+            device.network.gateway || ""
+        ];
+
+        // 各項目をテーブルに追加
+        values.forEach(value => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.appendChild(cell);
+        });
+
+        tableBody.appendChild(row);
+    });
+
+    // テーブルを表示
+    area.classList.remove("hidden");
+}
+
+// IPアドレステーブルボタンのクリック処理
+document.getElementById("show-ip-table").addEventListener("click", () => {
+    showIpTable();
+});
+
+// IPアドレステーブルを閉じる
+document.getElementById("close-ip-table").addEventListener("click", () => {
+    document.getElementById("ip-table-area").classList.add("hidden");
+});
+
+
+// ポート割り当てテーブルを生成して表示する
+function showPortTable() {
+
+    const area = document.getElementById("port-table-area");
+    const tableBody = document.getElementById("port-table-body");
+
+    // テーブルの内容を初期化
+    tableBody.innerHTML = "";
+
+    // すべての接続情報を確認
+    connections.forEach(connection => {
+
+        // 接続元と接続先の機器を取得
+        const fromDevice = devices.find(d =>
+            String(d.id) === String(connection.from)
+        );
+
+        const toDevice = devices.find(d =>
+            String(d.id) === String(connection.to)
+        );
+
+        // 機器が見つからない場合は処理しない
+        if (!fromDevice || !toDevice) return;
+
+        // 接続元・接続先の情報をそれぞれ追加
+        const rows = [
+            [
+                fromDevice.name,
+                connection.fromPort,
+                toDevice.name,
+                connection.toPort
+            ],
+            [
+                toDevice.name,
+                connection.toPort,
+                fromDevice.name,
+                connection.fromPort
+            ]
+        ];
+
+        // テーブルに2方向の接続情報を追加
+        rows.forEach(values => {
+
+            const row = document.createElement("tr");
+
+            values.forEach(value => {
+                const cell = document.createElement("td");
+                cell.textContent = value || "";
+                row.appendChild(cell);
+            });
+
+            tableBody.appendChild(row);
+        });
+    });
+
+    // テーブルを表示
+    area.classList.remove("hidden");
+}
+
+// ポート割り当てテーブルボタンのクリック処理
+document.getElementById("show-port-table").addEventListener("click", () => {
+    showPortTable();
+});
+
+// ポート割り当てテーブルを閉じる
+document.getElementById("close-port-table").addEventListener("click", () => {
+    document.getElementById("port-table-area").classList.add("hidden");
 });
