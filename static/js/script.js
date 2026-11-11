@@ -526,15 +526,26 @@ document.getElementById("device-close").addEventListener("click", () => {
 });
 
 //機器を追加する関数
-function addDevice(type){
+function addDevice(type, savedDevice = null){
 
-    //機器名を作成
-    const name = type + deviceCount[type];
+    let name;
 
-    deviceCount[type]++;
+    if(savedDevice){
+        name = savedDevice.name;
+
+        const number = Number(name.slice(type.length));
+
+        if(Number.isInteger(number) && number >= deviceCount[type]){
+            deviceCount[type] = number + 1;
+        }
+
+    }else{
+        name = type + deviceCount[type];
+        deviceCount[type]++;
+    }
 
     //機器情報を作成
-    const device = {
+    const device = savedDevice || {
         id: crypto.randomUUID(),
         type: type,
         name: name,
@@ -646,4 +657,120 @@ document.getElementById("delete-device").addEventListener("click", () => {
 
 document.getElementById("delete-connection").addEventListener("click", () => {
     deleteConnection();
+});
+
+//トポロジ全体をJSONファイルに保存
+function saveTopology(){
+
+    const data = {
+        devices: devices,
+        connections: connections.map(conn => ({
+            from: conn.from,
+            to: conn.to,
+            fromPort: conn.fromPort,
+            toPort: conn.toPort
+        }))
+    };
+
+    const json = JSON.stringify(data, null, 2);
+
+    const blob = new Blob([json], {
+        type: "application/json"
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "topology.json";
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+
+//JSONファイルからトポロジを読み込む
+function loadTopology(data){
+
+    //既存の機器を削除
+    document.querySelectorAll(".device").forEach(element => {
+        element.remove();
+    });
+
+    //既存の接続線を削除
+    svg.innerHTML = "";
+
+    devices.length = 0;
+    connections.length = 0;
+
+    selectedDevice = null;
+    selectedConnection = null;
+    deleteTarget = null;
+
+    document.getElementById("device-panel").classList.add("hidden");
+
+    //機器数を初期化
+    deviceCount.PC = 0;
+    deviceCount.SW = 0;
+    deviceCount.Router = 0;
+
+    //機器を復元
+    data.devices.forEach(device => {
+        addDevice(device.type, device);
+    });
+
+    //接続線を復元
+    data.connections.forEach(conn => {
+
+        const from = devices.find(d => d.id === conn.from);
+        const to = devices.find(d => d.id === conn.to);
+
+        if(!from || !to) return;
+
+        const fromPort = from.ports.find(p => p.name === conn.fromPort);
+        const toPort = to.ports.find(p => p.name === conn.toPort);
+
+        if(!fromPort || !toPort) return;
+
+        //接続を再作成するため、一度未使用に戻す
+        fromPort.connected = false;
+        toPort.connected = false;
+
+        createConnection(from, to, fromPort, toPort);
+    });
+}
+
+//保存ボタン
+document.getElementById("save-topology").addEventListener("click", () => {
+    saveTopology();
+});
+
+//読み込みボタン
+document.getElementById("load-topology").addEventListener("click", () => {
+    document.getElementById("load-file").click();
+});
+
+//JSONファイル選択時
+document.getElementById("load-file").addEventListener("change", async (e) => {
+
+    const file = e.target.files[0];
+
+    if(!file) return;
+
+    try{
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if(!Array.isArray(data.devices) || !Array.isArray(data.connections)){
+            throw new Error("JSON形式が正しくありません");
+        }
+
+        loadTopology(data);
+
+        alert("トポロジを読み込みました");
+
+    }catch(error){
+        alert("読み込みに失敗しました：" + error.message);
+    }
+
+    e.target.value = "";
 });
