@@ -1264,6 +1264,22 @@ async function createTopology() {
 // 選択したトポロジーを読み込む
 async function openTopology(topologyId) {
 
+            // 前回開いていたテーブルや診断結果を閉じる
+        document.getElementById("vlan-table-area").classList.add("hidden");
+        document.getElementById("ip-table-area").classList.add("hidden");
+        document.getElementById("port-table-area").classList.add("hidden");
+        document.getElementById("troubleshoot-area").classList.add("hidden");
+
+        // 前回の診断結果を初期化
+        document.getElementById("troubleshoot-summary").innerHTML = "";
+        document.getElementById("troubleshoot-results").innerHTML = "";
+
+        // 前回の機器の強調表示を解除
+        document.querySelectorAll(".device").forEach(element => {
+            element.style.outline = "";
+            element.style.boxShadow = "";
+        });
+
     try {
         const data = await apiRequest(`/api/topologies/${topologyId}`);
 
@@ -1525,6 +1541,12 @@ function troubleshootNetwork() {
     summary.innerHTML = "";
     results.innerHTML = "";
 
+    // 前回の機器の強調表示を解除
+    document.querySelectorAll(".device").forEach(element => {
+        element.style.outline = "";
+        element.style.boxShadow = "";
+    });
+
     // 診断結果を保存する配列
     const issues = [];
 
@@ -1670,27 +1692,130 @@ function troubleshootNetwork() {
     }
 
     // 問題がある場合は一覧表示
-    issues.forEach(issue => {
+    
+    // エラーと警告の件数を集計
+    const errorCount = issues.filter(issue =>
+        issue.level === "error"
+    ).length;
 
-        const item = document.createElement("div");
+    const warningCount = issues.filter(issue =>
+        issue.level === "warning"
+    ).length;
 
-        const title = document.createElement("strong");
-        title.textContent =
-            `${issue.device}：${issue.level === "error" ? "エラー" : "警告"}`;
+    // 診断結果の概要を表示
+    summary.textContent =
+        `検出された問題：${issues.length}件（エラー：${errorCount}件 / 警告：${warningCount}件）`;
 
-        const message = document.createElement("p");
-        message.textContent = issue.message;
+    // 問題がない場合
+    if (issues.length === 0) {
+        results.textContent = "問題は検出されませんでした。";
+    }
 
-        // エラーと警告を区別して表示
-        item.style.border = "1px solid #ccc";
-        item.style.padding = "10px";
-        item.style.margin = "5px 0";
+    // エラーと警告を分けて表示する
+    function displayIssues(title, level) {
 
-        item.appendChild(title);
-        item.appendChild(message);
+        // 指定した種類の問題だけを抽出
+        const filteredIssues = issues.filter(issue =>
+            issue.level === level
+        );
 
-        results.appendChild(item);
-    });
+        // 該当する問題がなければ表示しない
+        if (filteredIssues.length === 0) return;
+
+        // 分類ごとの見出しを作成
+        const heading = document.createElement("h4");
+        heading.textContent = `${title}（${filteredIssues.length}件）`;
+        results.appendChild(heading);
+
+        // 個別の診断結果を表示
+        filteredIssues.forEach(issue => {
+
+            const item = document.createElement("div");
+
+            // 該当機器を選択するボタンを作成
+            const deviceName = document.createElement("button");
+            deviceName.type = "button";
+            deviceName.textContent = issue.device;
+
+            // ボタンの見た目を調整
+            deviceName.style.display = "block";
+            deviceName.style.marginBottom = "5px";
+            deviceName.style.fontWeight = "bold";
+            deviceName.style.cursor = "pointer";
+
+            // 機器名をクリックしたときの処理
+            deviceName.addEventListener("click", () => {
+
+                // 前回の強調表示を解除
+                document.querySelectorAll(".device").forEach(element => {
+                    element.style.outline = "";
+                    element.style.boxShadow = "";
+                });
+
+                // 診断結果に含まれる機器名を取得
+                // VLAN不一致の場合は2台分の名前を取得する
+                const targetNames = issue.device.split(" / ");
+
+                // 該当する機器のHTML要素を取得
+                const targetElements = Array.from(
+                    document.querySelectorAll(".device")
+                ).filter(element => {
+
+                    const device = devices.find(d =>
+                        String(d.id) === String(element.dataset.id)
+                    );
+
+                    return device && targetNames.includes(device.name);
+                });
+
+                // 該当機器がない場合は終了
+                if (targetElements.length === 0) return;
+
+                // 該当機器を強調表示
+                targetElements.forEach(element => {
+                    element.style.outline = "4px solid #e74c3c";
+                    element.style.boxShadow = "0 0 12px #e74c3c";
+                });
+
+                // 該当機器が画面内に見えるように移動
+                targetElements[0].scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                    inline: "center"
+                });
+            });
+
+
+            const message = document.createElement("p");
+            message.textContent = issue.message;
+
+            // 診断結果を見やすくする
+            // エラーと警告で枠線の色を変更
+            item.style.border = level === "error"
+                ? "1px solid #e74c3c"
+                : "1px solid #f39c12";
+
+            // 背景色も種類ごとに変更
+            item.style.backgroundColor = level === "error"
+                ? "#fff0f0"
+                : "#fff8e8";
+
+            // 表示の余白を設定
+            item.style.padding = "10px";
+            item.style.margin = "5px 0";
+            item.style.borderRadius = "5px";
+
+            item.appendChild(deviceName);
+            item.appendChild(message);
+
+            results.appendChild(item);
+        });
+    }
+
+    // エラーと警告をそれぞれ表示
+    displayIssues("エラー", "error");
+    displayIssues("警告", "warning");
+
 
     // 診断結果を表示
     area.classList.remove("hidden");
@@ -1707,6 +1832,14 @@ document.getElementById("troubleshoot-button")
 // 診断結果を閉じる
 document.getElementById("close-troubleshoot")
     .addEventListener("click", () => {
+
+        // 診断結果の表示を閉じる
         document.getElementById("troubleshoot-area")
             .classList.add("hidden");
+
+        // すべての機器の強調表示を解除する
+        document.querySelectorAll(".device").forEach(element => {
+            element.style.outline = "";
+            element.style.boxShadow = "";
+        });
     });
