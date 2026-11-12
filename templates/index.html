@@ -55,6 +55,9 @@
 
             <!-- ポート割り当てテーブルを表示する -->
             <button id="show-port-table">ポート割り当てテーブル</button>
+
+            <!-- トラブルシューティングを実行する -->
+            <button id="troubleshoot-button">トラブルシューティング</button>
         </div>
 
 
@@ -132,6 +135,22 @@
 
             <!-- テーブルを閉じる -->
             <button id="close-port-table">閉じる</button>
+
+        </section>
+
+        <!-- トラブルシューティングの診断結果表示領域 -->
+        <section id="troubleshoot-area" class="hidden">
+
+            <h3>トラブルシューティング結果</h3>
+
+            <!-- 診断結果の概要 -->
+            <div id="troubleshoot-summary"></div>
+
+            <!-- 個別の診断結果を表示 -->
+            <div id="troubleshoot-results"></div>
+
+            <!-- 診断結果を閉じる -->
+            <button id="close-troubleshoot">閉じる</button>
 
         </section>
 

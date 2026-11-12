@@ -1512,3 +1512,201 @@ document.getElementById("show-port-table").addEventListener("click", () => {
 document.getElementById("close-port-table").addEventListener("click", () => {
     document.getElementById("port-table-area").classList.add("hidden");
 });
+
+
+// ネットワークの基本的な問題を診断する
+function troubleshootNetwork() {
+
+    const area = document.getElementById("troubleshoot-area");
+    const summary = document.getElementById("troubleshoot-summary");
+    const results = document.getElementById("troubleshoot-results");
+
+    // 前回の診断結果を初期化
+    summary.innerHTML = "";
+    results.innerHTML = "";
+
+    // 診断結果を保存する配列
+    const issues = [];
+
+    // IPアドレスの重複を確認するための配列
+    const ipAddresses = [];
+
+    // PCのIPアドレスを収集
+    devices.forEach(device => {
+
+        if (device.type !== "PC") return;
+        if (!device.network || !device.network.ip) return;
+
+        ipAddresses.push({
+            ip: device.network.ip,
+            name: device.name
+        });
+    });
+
+    // 同じIPアドレスが複数存在するか確認
+    ipAddresses.forEach(item => {
+
+        // 同じIPアドレスを持つ機器を検索
+        const duplicateDevices = ipAddresses.filter(other =>
+            other.ip === item.ip
+        );
+
+        // 2台以上で同じIPアドレスを使用している場合
+        if (duplicateDevices.length > 1) {
+
+            issues.push({
+                device: item.name,
+                message: `IPアドレス ${item.ip} が重複しています。`,
+                level: "error"
+            });
+        }
+    });
+
+
+    // スイッチ間のVLAN設定を確認
+    connections.forEach(connection => {
+
+        // 接続元と接続先の機器を取得
+        const fromDevice = devices.find(d =>
+            String(d.id) === String(connection.from)
+        );
+
+        const toDevice = devices.find(d =>
+            String(d.id) === String(connection.to)
+        );
+
+        // 両方がスイッチの場合だけ確認
+        if (!fromDevice || !toDevice) return;
+        if (fromDevice.type !== "SW" || toDevice.type !== "SW") return;
+
+        // 接続元と接続先のポートを取得
+        const fromPort = fromDevice.ports.find(p =>
+            p.name === connection.fromPort
+        );
+
+        const toPort = toDevice.ports.find(p =>
+            p.name === connection.toPort
+        );
+
+        // ポート情報がない場合は処理しない
+        if (!fromPort || !toPort) return;
+
+        // 両方のVLAN IDが設定されていて異なる場合
+        if (
+            fromPort.vlanId &&
+            toPort.vlanId &&
+            String(fromPort.vlanId) !== String(toPort.vlanId)
+        ) {
+            issues.push({
+                device: `${fromDevice.name} / ${toDevice.name}`,
+                message: `接続ポートのVLAN IDが一致していません（${fromPort.vlanId} / ${toPort.vlanId}）。`,
+                level: "warning"
+            });
+        }
+    });
+
+
+    // すべての機器を確認
+    devices.forEach(device => {
+
+        // PCのIPアドレスを確認
+        if (device.type === "PC") {
+
+            if (!device.network || !device.network.ip) {
+                issues.push({
+                    device: device.name,
+                    message: "IPアドレスが設定されていません。",
+                    level: "error"
+                });
+            }
+        }
+
+        // サブネットマスクとゲートウェイの設定を確認
+        if (device.type === "PC" && device.network?.ip) {
+
+            // サブネットマスクの設定を確認
+            if (!device.network.mask) {
+                issues.push({
+                    device: device.name,
+                    message: "サブネットマスクが設定されていません。",
+                    level: "warning"
+                });
+            }
+
+            // デフォルトゲートウェイの設定を確認
+            if (!device.network.gateway) {
+                issues.push({
+                    device: device.name,
+                    message: "デフォルトゲートウェイが設定されていません。",
+                    level: "warning"
+                });
+            }
+        }
+
+
+        // 機器の接続状態を確認
+        const connected = connections.some(connection =>
+            String(connection.from) === String(device.id) ||
+            String(connection.to) === String(device.id)
+        );
+
+        // どの機器とも接続されていない場合は警告
+        if (!connected) {
+            issues.push({
+                device: device.name,
+                message: "ほかの機器と接続されていません。",
+                level: "warning"
+            });
+        }
+    });
+
+    // 診断結果の件数を表示
+    summary.textContent =
+        `検出された問題：${issues.length}件`;
+
+    // 問題がない場合
+    if (issues.length === 0) {
+        results.textContent = "問題は検出されませんでした。";
+    }
+
+    // 問題がある場合は一覧表示
+    issues.forEach(issue => {
+
+        const item = document.createElement("div");
+
+        const title = document.createElement("strong");
+        title.textContent =
+            `${issue.device}：${issue.level === "error" ? "エラー" : "警告"}`;
+
+        const message = document.createElement("p");
+        message.textContent = issue.message;
+
+        // エラーと警告を区別して表示
+        item.style.border = "1px solid #ccc";
+        item.style.padding = "10px";
+        item.style.margin = "5px 0";
+
+        item.appendChild(title);
+        item.appendChild(message);
+
+        results.appendChild(item);
+    });
+
+    // 診断結果を表示
+    area.classList.remove("hidden");
+}
+
+
+// 診断ボタンのクリック処理
+document.getElementById("troubleshoot-button")
+    .addEventListener("click", () => {
+        troubleshootNetwork();
+    });
+
+
+// 診断結果を閉じる
+document.getElementById("close-troubleshoot")
+    .addEventListener("click", () => {
+        document.getElementById("troubleshoot-area")
+            .classList.add("hidden");
+    });
